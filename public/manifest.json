@@ -26,11 +26,10 @@
   ],
 
   "permissions": [
-    "storage",
     "tabs"
   ],
 
   "host_permissions": [
-    "<all_urls>"
+    "https://www.geoguessr.com/*"
   ]
 }
