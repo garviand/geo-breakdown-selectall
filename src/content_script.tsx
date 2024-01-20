@@ -1,3 +1,28 @@
+const startScoresSelect = () => {
+  selectAllPlayers();
+  let breakdownTable = document.querySelector("[class^=results_table__]");
+  if (breakdownTable) {
+    initScoreObserver(breakdownTable as HTMLElement);
+  }
+  const maxLoadMore = 3;
+  for (let index = 0; index < maxLoadMore; index++) {
+    const canLoadMore = loadMoreScores();
+    if (!canLoadMore) {
+      break;
+    }
+  }
+}
+
+const loadMoreScores = () => {
+  const loadMoreContainer = document.querySelector("[class^=results_center]")
+  if (loadMoreContainer?.firstChild) {
+    const loadMoreButton = loadMoreContainer.firstChild;
+    loadMoreButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return true;
+  }
+  return false;
+}
+
 const selectAllPlayers = () => {
   const allScoreRows = document.querySelectorAll("[class^=results_row_]");
   allScoreRows.forEach((scoreRow) => {
@@ -17,7 +42,8 @@ const getButton = () => {
     document.createTextNode('Select All')
   )
   button.setAttribute('style', buttonStyle);
-  button.addEventListener('click', selectAllPlayers);
+  button.addEventListener('click', startScoresSelect);
+  button.id = 'select_all_button';
   return button;
 }
 
@@ -29,10 +55,34 @@ const addButtonToFirstRow = (buttonCell: HTMLElement) => {
     buttonCell.setAttribute('style', cellStyle);
     const button = getButton();
     buttonCell.appendChild(button);
+    tableObserver.disconnect();
   }
 }
 
-const observer = new MutationObserver((mutations: Array<MutationRecord>) => {
+// watch for new scores and select them
+
+const scoreObserver = new MutationObserver((mutations: Array<MutationRecord>) => {
+  mutations.forEach((mutation) => {
+    mutation.addedNodes.forEach((node) => {
+      const element = node as HTMLElement;
+      if (
+        !element.className.includes('results_headerRow') &&
+        !element.className.includes('results_selected') &&
+        !element.className.includes('Divider')
+      ) {
+        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      }
+    })
+  })
+});
+
+const initScoreObserver = (scoresContainer: HTMLElement) => {
+  scoreObserver.observe(scoresContainer, {childList: true});
+}
+
+// watch for table render and add button
+
+const tableObserver = new MutationObserver((mutations: Array<MutationRecord>) => {
   mutations.forEach((mutation) => {
     mutation.addedNodes.forEach((node) => {
       const buttonCell = node.firstChild?.firstChild as HTMLElement;
@@ -43,15 +93,15 @@ const observer = new MutationObserver((mutations: Array<MutationRecord>) => {
 
 chrome.runtime.onMessage.addListener(function (msg) {
   if (msg === 'on_results_page') {
-    const breakdownTable = document.querySelectorAll("[class^=results_table__]")
-    if (breakdownTable.length) {
-      const buttonCell = breakdownTable[0].firstChild?.firstChild as HTMLElement;
+    let breakdownTable = document.querySelector("[class^=results_table__]")
+    if (breakdownTable) {
+      const buttonCell = breakdownTable.firstChild?.firstChild as HTMLElement;
       addButtonToFirstRow(buttonCell);
     }
     else {
-      const breakdownTables = document.querySelectorAll("[class^=results_container]")
-      if (breakdownTables?.length) {
-        observer.observe(breakdownTables[0], { childList: true });
+      breakdownTable = document.querySelector("[class^=results_container]")
+      if (breakdownTable) {
+        tableObserver.observe(breakdownTable, { childList: true });
       }
     }
   }
